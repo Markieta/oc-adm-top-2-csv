@@ -56,7 +56,7 @@ def main():
             millicore_sum = sum([int(i) for i in millicore_set[1:]])
             cpu_average.append((namespace, millicore_sum / (len(millicore_set) - 1)))
 
-        for namespace, memory_set in cpu.items():
+        for namespace, memory_set in memory.items():
             memory_sum = sum([int(i) for i in memory_set[1:]])
             memory_average.append((namespace, memory_sum / (len(memory_set) - 1)))
 

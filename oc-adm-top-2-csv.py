@@ -20,8 +20,8 @@ def main():
             namespace, pod, cpu, memory = line.split()
             if namespace not in files[f]: files[f][namespace] = {}
             files[f][namespace][pod] = {}
-            files[f][namespace][pod]['cpu'] = cpu
-            files[f][namespace][pod]['memory'] = memory
+            files[f][namespace][pod]['cpu'] = cpu[:-1]       # Removing units: m (Millicores)
+            files[f][namespace][pod]['memory'] = memory[:-2] # Removing units: Mi (Mebibyte)
     
     with open('namespace-cpu.csv', 'w') as cpu_csv, open(
               'namespace-memory.csv', 'w') as memory_csv:

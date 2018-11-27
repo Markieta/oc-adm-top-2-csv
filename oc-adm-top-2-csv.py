@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from __future__ import division
+
 import argparse
 import csv
 import pandas as pd
@@ -22,14 +24,14 @@ def main():
             files[f][namespace][pod] = {}
             files[f][namespace][pod]['cpu'] = cpu[:-1]       # Removing units: m (Millicores)
             files[f][namespace][pod]['memory'] = memory[:-2] # Removing units: Mi (Mebibyte)
-    
+
+    cpu = {}
+    memory = {}
+
     with open('namespace-cpu.csv', 'w') as cpu_csv, open(
               'namespace-memory.csv', 'w') as memory_csv:
         cpu_writer = csv.writer(cpu_csv, delimiter=',')
         memory_writer = csv.writer(memory_csv, delimiter=',')
-
-        cpu = {}
-        memory = {}
 
         for f in files:
             for namespace, pods in files[f].items():
@@ -42,15 +44,34 @@ def main():
         cpu_writer.writerows(cpu.values())
         memory_writer.writerows(memory.values())
 
-        # Transposing CSV files to prevent maxining out number of columns
-        df = pd.read_csv('namespace-cpu.csv', header=None, 
-                         error_bad_lines=False)
-        df.transpose().to_csv('namespace-cpu-transposed.csv',
-                              header = False, index=False)
-        df = pd.read_csv('namespace-memory.csv', header=None,
-                         error_bad_lines=False)
-        df.transpose().to_csv('namespace-memory-transposed.csv',
-                              header = False, index=False)
+    with open('namespace-cpu-average.csv', 'w') as cpu_csv, open(
+              'namespace-memory-average.csv', 'w') as memory_csv:
+        cpu_writer = csv.writer(cpu_csv, delimiter=',')
+        memory_writer = csv.writer(memory_csv, delimiter=',')
+
+        cpu_average = []
+        memory_average = []
+
+        for namespace, millicore_set in cpu.items():
+            millicore_sum = sum([int(i) for i in millicore_set[1:]])
+            cpu_average.append((namespace, millicore_sum / (len(millicore_set) - 1)))
+
+        for namespace, memory_set in cpu.items():
+            memory_sum = sum([int(i) for i in memory_set[1:]])
+            memory_average.append((namespace, memory_sum / (len(memory_set) - 1)))
+
+        cpu_writer.writerows(cpu_average)
+        memory_writer.writerows(memory_average)
+
+    # Transposing CSV files to prevent maxining out number of columns
+    df = pd.read_csv('namespace-cpu.csv', header=None, 
+                     error_bad_lines=False)
+    df.transpose().to_csv('namespace-cpu-transposed.csv',
+                          header = False, index=False)
+    df = pd.read_csv('namespace-memory.csv', header=None,
+                     error_bad_lines=False)
+    df.transpose().to_csv('namespace-memory-transposed.csv',
+                          header = False, index=False)
 
 if __name__ == '__main__':
     main()

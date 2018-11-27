@@ -2,6 +2,7 @@
 
 import argparse
 import csv
+import pandas as pd
 
 def main():
     parser = argparse.ArgumentParser(description='Convert output of oc-adm-top'
@@ -13,6 +14,7 @@ def main():
     files = {}
 
     for f in args.files:
+        next(f) # Skip headers
         files[f] = {}
         for line in f:
             namespace, pod, cpu, memory = line.split()
@@ -39,6 +41,16 @@ def main():
 
         cpu_writer.writerows(cpu.values())
         memory_writer.writerows(memory.values())
+
+        # Transposing CSV files to prevent maxining out number of columns
+        df = pd.read_csv('namespace-cpu.csv', header=None, 
+                         error_bad_lines=False)
+        df.transpose().to_csv('namespace-cpu-transposed.csv',
+                              header = False, index=False)
+        df = pd.read_csv('namespace-memory.csv', header=None,
+                         error_bad_lines=False)
+        df.transpose().to_csv('namespace-memory-transposed.csv',
+                              header = False, index=False)
 
 if __name__ == '__main__':
     main()

@@ -21,17 +21,24 @@ def main():
             files[f][namespace][pod]['cpu'] = cpu
             files[f][namespace][pod]['memory'] = memory
     
-    with open('namespace-cpu.csv', 'wb') as csv_file:
-        writer = csv.writer(csv_file, delimiter=',')
+    with open('namespace-cpu.csv', 'w') as cpu_csv, open(
+              'namespace-memory.csv', 'w') as memory_csv:
+        cpu_writer = csv.writer(cpu_csv, delimiter=',')
+        memory_writer = csv.writer(memory_csv, delimiter=',')
+
+        cpu = {}
+        memory = {}
 
         for f in files:
             for namespace, pods in files[f].items():
-                cpu = [namespace]
-                memory = [namespace]
+                if namespace not in cpu: cpu[namespace] = [namespace]
+                if namespace not in memory: memory[namespace] = [namespace]
                 for pod, properties in pods.items():
-                    cpu.append(properties['cpu'])
-                    memory.append(properties['cpu'])
-                writer.writerow(cpu)
+                    cpu[namespace].append(properties['cpu'])
+                    memory[namespace].append(properties['memory'])
+
+        cpu_writer.writerows(cpu.values())
+        memory_writer.writerows(memory.values())
 
 if __name__ == '__main__':
     main()

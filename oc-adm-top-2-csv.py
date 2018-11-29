@@ -17,55 +17,42 @@ def ingestFiles(files, snaps):
             snaps[f][namespace][pod]['cpu'] = cpu[:-1]       # Removing units: m (Millicores)
             snaps[f][namespace][pod]['memory'] = memory[:-2] # Removing units: Mi (Mebibyte)
 
-def writePodValues(snaps, cpu, memory):
-    with open('namespace-cpu.csv', 'w') as cpu_csv, open(
-            'namespace-memory.csv', 'w') as memory_csv:
-        cpu_writer = csv.writer(cpu_csv, delimiter=',')
-        memory_writer = csv.writer(memory_csv, delimiter=',')
+def getPodValues(snaps, resource, property):
+    for s in snaps:
+        for namespace, pods in snaps[s].items():
+            if namespace not in resource: resource[namespace] = [namespace]
+            for pod, properties in pods.items():
+                resource[namespace].append(properties[property])
 
-        for f in snaps:
-            for namespace, pods in snaps[f].items():
-                if namespace not in cpu: cpu[namespace] = [namespace]
-                if namespace not in memory: memory[namespace] = [namespace]
-                for pod, properties in pods.items():
-                    cpu[namespace].append(properties['cpu'])
-                    memory[namespace].append(properties['memory'])
+    return resource.values()
 
-        cpu_writer.writerows(cpu.values())
-        memory_writer.writerows(memory.values())
+def getNamespaceSums(snaps, resource, property):
+    for s in snaps:
+        for namespace, pods in snaps[s].items():
+            if namespace not in resource: resource[namespace] = [namespace]
+            resource[namespace].append(sum(int(pod[property]) for pod in pods.values()))
 
-def writePodAverages(cpu, memory):
-    with open('namespace-cpu-average.csv', 'w') as cpu_csv, open(
-            'namespace-memory-average.csv', 'w') as memory_csv:
-        cpu_writer = csv.writer(cpu_csv, delimiter=',')
-        memory_writer = csv.writer(memory_csv, delimiter=',')
+    return resource.values()
 
-        cpu_average = []
-        memory_average = []
+def getAverage(resource):
+    average = []
 
-        for namespace, millicore_set in cpu.items():
-            millicore_sum = sum([int(i) for i in millicore_set[1:]])
-            cpu_average.append((namespace, millicore_sum / (len(millicore_set) - 1)))
+    for namespace, metric_set in resource.items():
+        metric_sum = sum([int(i) for i in metric_set[1:]])
+        average.append((namespace, metric_sum / (len(metric_set) - 1)))
 
-        for namespace, memory_set in memory.items():
-            memory_sum = sum([int(i) for i in memory_set[1:]])
-            memory_average.append((namespace, memory_sum / (len(memory_set) - 1)))
+    return average
 
-        cpu_writer.writerows(cpu_average)
-        memory_writer.writerows(memory_average)
+def writeCSV(filename, rows):
+    with open(filename, 'w') as csv_file:
+        csv.writer(csv_file, delimiter=',').writerows(rows)
 
-def transpose():
+def transpose(infile, outfile):
     """
     Transposing CSV files to prevent maxining out number of columns
     """
-    df = pd.read_csv('namespace-cpu.csv', header=None, 
-                     error_bad_lines=False)
-    df.transpose().to_csv('namespace-cpu-transposed.csv',
-                          header = False, index=False)
-    df = pd.read_csv('namespace-memory.csv', header=None,
-                     error_bad_lines=False)
-    df.transpose().to_csv('namespace-memory-transposed.csv',
-                          header = False, index=False)
+    df = pd.read_csv(infile, header=None, error_bad_lines=False)
+    df.transpose().to_csv(outfile, header = False, index=False)
 
 def main():
     parser = argparse.ArgumentParser(description='Convert output of oc-adm-top'
@@ -74,14 +61,30 @@ def main():
                         nargs='+', required=True)
     args = parser.parse_args()
     
-    namespace_cpu = {}
-    namespace_memory = {}
     snapshots = {}
-    
+    pod_cpu_values = {}
+    pod_memory_values = {}
+    namespace_cpu_sums = {}
+    namespace_memory_sums = {}
+
     ingestFiles(args.files, snapshots)
-    writePodValues(snapshots, namespace_cpu, namespace_memory)
-    writePodAverages(namespace_cpu, namespace_memory)
-    transpose()
+    
+    writeCSV('pod_cpu_values.csv', 
+        getPodValues(snapshots, pod_cpu_values, 'cpu'))
+    writeCSV('pod_cpu_average.csv', 
+        getAverage(pod_cpu_values))
+    writeCSV('pod_memory_values.csv', 
+        getPodValues(snapshots, pod_memory_values, 'memory'))
+    writeCSV('pod_memory_average.csv', 
+        getAverage(pod_memory_values))
+    writeCSV('namespace_cpu_sums.csv', 
+        getNamespaceSums(snapshots, namespace_cpu_sums, 'cpu'))
+    writeCSV('namespace_cpu_average.csv', 
+        getAverage(namespace_cpu_sums))
+    writeCSV('namespace_memory_sums.csv', 
+        getNamespaceSums(snapshots, namespace_memory_sums, 'memory'))
+    writeCSV('namespace_memory_average.csv', 
+        getAverage(namespace_memory_sums))
 
 if __name__ == '__main__':
     main()

@@ -6,35 +6,25 @@ import argparse
 import csv
 import pandas as pd
 
-def main():
-    parser = argparse.ArgumentParser(description='Convert output of oc-adm-top'
-                                                 ' commands to CSV format')
-    parser.add_argument('-f', '--files', type=argparse.FileType('r'),
-                        nargs='+', required=True)
-    args = parser.parse_args()
-    
-    files = {}
-
-    for f in args.files:
+def ingestFiles(files, snaps):
+    for f in files:
         next(f) # Skip headers
-        files[f] = {}
+        snaps[f] = {}
         for line in f:
             namespace, pod, cpu, memory = line.split()
-            if namespace not in files[f]: files[f][namespace] = {}
-            files[f][namespace][pod] = {}
-            files[f][namespace][pod]['cpu'] = cpu[:-1]       # Removing units: m (Millicores)
-            files[f][namespace][pod]['memory'] = memory[:-2] # Removing units: Mi (Mebibyte)
+            if namespace not in snaps[f]: snaps[f][namespace] = {}
+            snaps[f][namespace][pod] = {}
+            snaps[f][namespace][pod]['cpu'] = cpu[:-1]       # Removing units: m (Millicores)
+            snaps[f][namespace][pod]['memory'] = memory[:-2] # Removing units: Mi (Mebibyte)
 
-    cpu = {}
-    memory = {}
-
+def writePodValues(snaps, cpu, memory):
     with open('namespace-cpu.csv', 'w') as cpu_csv, open(
-              'namespace-memory.csv', 'w') as memory_csv:
+            'namespace-memory.csv', 'w') as memory_csv:
         cpu_writer = csv.writer(cpu_csv, delimiter=',')
         memory_writer = csv.writer(memory_csv, delimiter=',')
 
-        for f in files:
-            for namespace, pods in files[f].items():
+        for f in snaps:
+            for namespace, pods in snaps[f].items():
                 if namespace not in cpu: cpu[namespace] = [namespace]
                 if namespace not in memory: memory[namespace] = [namespace]
                 for pod, properties in pods.items():
@@ -44,8 +34,9 @@ def main():
         cpu_writer.writerows(cpu.values())
         memory_writer.writerows(memory.values())
 
+def writePodAverages(cpu, memory):
     with open('namespace-cpu-average.csv', 'w') as cpu_csv, open(
-              'namespace-memory-average.csv', 'w') as memory_csv:
+            'namespace-memory-average.csv', 'w') as memory_csv:
         cpu_writer = csv.writer(cpu_csv, delimiter=',')
         memory_writer = csv.writer(memory_csv, delimiter=',')
 
@@ -63,7 +54,10 @@ def main():
         cpu_writer.writerows(cpu_average)
         memory_writer.writerows(memory_average)
 
-    # Transposing CSV files to prevent maxining out number of columns
+def transpose():
+    """
+    Transposing CSV files to prevent maxining out number of columns
+    """
     df = pd.read_csv('namespace-cpu.csv', header=None, 
                      error_bad_lines=False)
     df.transpose().to_csv('namespace-cpu-transposed.csv',
@@ -72,6 +66,22 @@ def main():
                      error_bad_lines=False)
     df.transpose().to_csv('namespace-memory-transposed.csv',
                           header = False, index=False)
+
+def main():
+    parser = argparse.ArgumentParser(description='Convert output of oc-adm-top'
+                                                 ' commands to CSV format')
+    parser.add_argument('-f', '--files', type=argparse.FileType('r'),
+                        nargs='+', required=True)
+    args = parser.parse_args()
+    
+    namespace_cpu = {}
+    namespace_memory = {}
+    snapshots = {}
+    
+    ingestFiles(args.files, snapshots)
+    writePodValues(snapshots, namespace_cpu, namespace_memory)
+    writePodAverages(namespace_cpu, namespace_memory)
+    transpose()
 
 if __name__ == '__main__':
     main()

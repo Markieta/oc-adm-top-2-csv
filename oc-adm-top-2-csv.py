@@ -43,6 +43,24 @@ def getAverage(resource):
 
     return average
 
+def getMinimum(resource):
+    minimum = []
+
+    for namespace, metric_set in resource.items():
+        metric_min = min([int(i) for i in metric_set[1:]])
+        minimum.append((namespace, metric_min))
+
+    return minimum
+
+def getMaximum(resource):
+    maximum = []
+
+    for namespace, metric_set in resource.items():
+        metric_max = max([int(i) for i in metric_set[1:]])
+        maximum.append((namespace, metric_max))
+
+    return maximum
+
 def writeCSV(filename, rows):
     with open(filename, 'w') as csv_file:
         csv.writer(csv_file, delimiter=',').writerows(rows)
@@ -85,6 +103,14 @@ def main():
         getNamespaceSums(snapshots, namespace_memory_sums, 'memory'))
     writeCSV('namespace_memory_average.csv', 
         getAverage(namespace_memory_sums))
+    writeCSV('namespace_memory_min.csv', 
+        getMinimum(namespace_memory_sums))
+    writeCSV('namespace_memory_max.csv', 
+        getMaximum(namespace_memory_sums))
+    writeCSV('namespace_cpu_min.csv',
+        getMinimum(namespace_cpu_sums))
+    writeCSV('namespace_cpu_max.csv', 
+        getMaximum(namespace_cpu_sums))
 
 if __name__ == '__main__':
     main()

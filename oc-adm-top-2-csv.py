@@ -24,7 +24,7 @@ def getPodValues(snaps, resource, property):
             for pod, properties in pods.items():
                 resource[namespace].append(properties[property])
 
-    return resource.values()
+    return resource
 
 def getNamespaceSums(snaps, resource, property):
     for s in snaps:
@@ -32,38 +32,38 @@ def getNamespaceSums(snaps, resource, property):
             if namespace not in resource: resource[namespace] = [namespace]
             resource[namespace].append(sum(int(pod[property]) for pod in pods.values()))
 
-    return resource.values()
+    return resource
 
 def getAverage(resource):
-    average = []
+    average = {}
 
     for namespace, metric_set in resource.items():
         metric_sum = sum([int(i) for i in metric_set[1:]])
-        average.append((namespace, metric_sum / (len(metric_set) - 1)))
+        average[namespace] = metric_sum / (len(metric_set) - 1)
 
     return average
 
 def getMinimum(resource):
-    minimum = []
+    minimum = {}
 
     for namespace, metric_set in resource.items():
         metric_min = min([int(i) for i in metric_set[1:]])
-        minimum.append((namespace, metric_min))
+        minimum[namespace] = metric_min
 
     return minimum
 
 def getMaximum(resource):
-    maximum = []
+    maximum = {}
 
     for namespace, metric_set in resource.items():
         metric_max = max([int(i) for i in metric_set[1:]])
-        maximum.append((namespace, metric_max))
+        maximum[namespace] = metric_max
 
     return maximum
 
 def writeCSV(filename, rows):
     with open(filename, 'w') as csv_file:
-        csv.writer(csv_file, delimiter=',').writerows(rows)
+        csv.writer(csv_file, delimiter=',').writerows(rows.items())
 
 def transpose(infile, outfile):
     """

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from __future__ import division
+from heapq import nlargest
 
 import argparse
 import csv
@@ -14,13 +15,13 @@ def ingestFiles(files, snaps):
             namespace, pod, cpu, memory = line.split()
             if namespace not in snaps[f]: snaps[f][namespace] = {}
             snaps[f][namespace][pod] = {}
-            snaps[f][namespace][pod]['cpu'] = cpu[:-1]       # Removing units: m (Millicores)
-            snaps[f][namespace][pod]['memory'] = memory[:-2] # Removing units: Mi (Mebibyte)
+            snaps[f][namespace][pod]['cpu'] = int(cpu[:-1])       # Removing units: m (Millicores)
+            snaps[f][namespace][pod]['memory'] = int(memory[:-2]) # Removing units: Mi (Mebibyte)
 
 def getPodValues(snaps, resource, property):
     for s in snaps:
         for namespace, pods in snaps[s].items():
-            if namespace not in resource: resource[namespace] = [namespace]
+            if namespace not in resource: resource[namespace] = []
             for pod, properties in pods.items():
                 resource[namespace].append(properties[property])
 
@@ -29,17 +30,21 @@ def getPodValues(snaps, resource, property):
 def getNamespaceSums(snaps, resource, property):
     for s in snaps:
         for namespace, pods in snaps[s].items():
-            if namespace not in resource: resource[namespace] = [namespace]
-            resource[namespace].append(sum(int(pod[property]) for pod in pods.values()))
+            if namespace not in resource: resource[namespace] = []
+            resource[namespace].append(sum(pod[property] for pod in pods.values()))
 
     return resource
 
-def getAverage(resource):
+def getAverage(resource, threshold=1):
     average = {}
+    maximum = getMaximum(resource)
 
     for namespace, metric_set in resource.items():
-        metric_sum = sum([int(i) for i in metric_set[1:]])
-        average[namespace] = metric_sum / (len(metric_set) - 1)
+        count = int(round(threshold * len(metric_set)))
+        metric_sum = 0
+        for metric in nlargest(count, metric_set):
+            metric_sum += metric
+        average[namespace] = metric_sum / count
 
     return average
 
@@ -47,7 +52,7 @@ def getMinimum(resource):
     minimum = {}
 
     for namespace, metric_set in resource.items():
-        metric_min = min([int(i) for i in metric_set[1:]])
+        metric_min = min([i for i in metric_set])
         minimum[namespace] = metric_min
 
     return minimum
@@ -56,7 +61,7 @@ def getMaximum(resource):
     maximum = {}
 
     for namespace, metric_set in resource.items():
-        metric_max = max([int(i) for i in metric_set[1:]])
+        metric_max = max([i for i in metric_set])
         maximum[namespace] = metric_max
 
     return maximum
@@ -111,6 +116,10 @@ def main():
         getMinimum(namespace_cpu_sums))
     writeCSV('namespace_cpu_max.csv', 
         getMaximum(namespace_cpu_sums))
+    writeCSV('namespace_cpu_average_threshold_50%.csv', 
+        getAverage(namespace_cpu_sums, 0.5))
+    writeCSV('namespace_memory_average_threshold_50%.csv', 
+        getAverage(namespace_memory_sums, 0.5))
 
 if __name__ == '__main__':
     main()
